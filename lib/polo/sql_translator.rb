@@ -48,9 +48,18 @@ module Polo
     # insert statements
     #
     def raw_sql(record)
-      record.class.arel_table.create_insert.tap do |insert_manager|
-        insert_manager.insert(insert_values(record))
-      end.to_sql
+      h = insert_values(record)
+      columns = []
+      values = []
+      h.each do |column, value|
+	  name = column.name
+          columns << "\"#{name}\""
+          values << "#{value}"
+      end
+      columns = columns.join(", ")
+      values = values.join(", ")
+      table = h.first.first.relation.name
+      "INSERT INTO #{table} (#{columns}) VALUES (#{values});"
     end
 
     # Internal: Returns an object's attribute definitions along with
@@ -75,7 +84,13 @@ module Polo
         values = record.send(:arel_attributes_with_values_for_create, record.attribute_names)
         values.each do |attribute, value|
           column = record.send(:column_for_attribute, attribute.name)
-          values[attribute] = connection.type_cast(value, column)
+	  value = connection.type_cast(value, column)
+          if value == nil or value == ""
+              value = "NULL"
+	  elsif value.class == String
+              value = connection.quote(value)
+          end
+          values[attribute] = value
         end
       end
     end
